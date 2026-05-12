@@ -1,0 +1,227 @@
+---
+title: "Final Project R Notebook"
+output: html_document
+date: "2026-05-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars}
+# load all the necessary packages ( not just for this assignment)
+library(knitr)
+library(readr)
+library(dplyr)
+library(tidyr)
+library(tidyverse)
+library(lmtest)
+library(stargazer)
+library(sandwich)
+
+```
+
+
+```{r}
+
+# Download the csv file
+time_series_data = read.csv('/Users/khan/time_series_data.csv')
+  
+```
+
+All regressions are modeled using interrupted time series (ITS).
+
+```{r}
+
+# Overall Score Regression:
+its_general <- lm(genscore ~ trend + post_911 + trend_after + sent +
+                  comedypop + crimepop + fanpop + horpop + warpop + scipop + thrillpop, 
+                  # all genre box office proportions
+                  data = time_series_data) # using the time_series dataset
+
+# Stepwise selection, combining forward and backward selection by AIC
+its_general_aic <- step(its_general, direction = "both")
+
+# Let'see what variables have survived
+summary(its_general_aic)
+
+dwtest(its_general_aic) # Durbin-Watson test for autocorrelation
+bgtest(its_general_aic, order = 12)  # Breusch-Godfrey test
+acf(residuals(its_general_aic)) # Autocorrelation function residuals test
+coeftest(its_general_aic, vcov = NeweyWest(its_general_aic, lag = 3)) # Newey-West correction for autocorrelation
+
+```
+Given the fact that this "general" score was averaged across 5 genre scores, which, in turn, were averaged for each month and hundreds of reviews, the under-10% significance of the immediate downward shift and the under-5% significance of the gradual decline following 9/11 are impressive. Two newly created variables — box office dominance of Romcom and War — two very polar genres have remained.
+
+Let's take a closer look at two specific genres — Romcom and War. Exactly, these box office proportions have survived our stepwise selection.
+```{r}
+
+# ROMCOM
+its_comedy <- lm(comscore ~ trend + post_911 + trend_after + unrate + comedypop + warpop + crimepop +
+                fanpop + horpop + warpop + scipop + thrillpop,
+                 data = time_series_data)
+summary(its_comedy)
+# Stepwise selection, combining forward and backward selection by AIC
+its_comedy_aic <- step(its_comedy, direction = "both")
+
+dwtest(its_comedy_aic) # Durbin-Watson test for autocorrelation
+bgtest(its_comedy_aic, order = 12)   # Breusch-Godfrey test
+coeftest(its_comedy_aic, vcov = NeweyWest(its_comedy_aic, lag = 3)) # Newey-West correction for autocorrelation 
+# Plus, let's see which variables have survived
+
+# WAR
+its_war <- lm(warscore ~ trend + post_911 + trend_after + unrate + comedypop + warpop + crimepop +
+                fanpop + horpop + warpop + scipop + thrillpop,
+                 data = time_series_data)
+summary(its_war)
+# Stepwise selection, combining forward and backward selection by AIC
+its_war_aic <- step(its_war, direction = "both")
+
+dwtest(its_war_aic) # Durbin-Watson test for autocorrelation
+bgtest(its_war_aic, order = 12)   # Breusch-Godfrey test
+coeftest(its_war_aic, vcov = NeweyWest(its_war_aic, lag = 3)) # Newey-West correction for autocorrelation
+
+```
+After autocorrelation tests, the significances hold.
+
+Out of all genres, Romcom experienced the most evident sentiment decline in reviews, both immediately and gradually.
+The stepwise selection eliminated the immediate shift for War, rather the sentiment started to gradually decline after.
+
+For the genre-interaction model, we are going to use the "tidyr" pivot_longer function to transform our time series dataset, allowing us to compare 9/11 impact across different genres — Romcom, Fantasy, Horror, Crime-Thriller, and War.
+It is kind of a pivot table, already transformed into a dataframe.
+Additionally, because we have a good number of independent variables we will use stepwuse selection to choose those most valuable to our model.
+
+
+```{r}
+# OVERALL, ROMCOM, WAR
+stargazer(its_general_aic, its_comedy_aic, its_war_aic, type = "text") # checking what the stargazer variables will look like not to mess anything up
+stargazer(its_general_aic, its_comedy_aic, its_war_aic, # what models we want to display
+          out = "Regressions.html"
+          title = "The Impact of 9/11 on Film Review Sentiment", # the title
+          column.labels = c("Overall Model", "Romcom Model", "War Model"), # each model's name
+          dep.var.labels = c("Overall Sentiment Score", "Romcom Sentiment Score", "War Sentiment Score"),
+          dep.var.caption = "", # excludes the name 'Dependent Variables'
+          covariate.labels = c("Trend", # trend
+                             "Post 9/11 Immediate Shift",  # post_911
+                             "Trend After 9/11", # trend_after
+                             "Unemployment Rate", # unrate,
+                             "UMich Sentiment",
+                             "Crime Popularity",
+                             "Comedy Dominance", # comedypop
+                             "War Dominance", # warpop
+                             "Horror Dominance", # horpop
+                             "Constant" # intercept
+                             ),
+          type = "html", # type of output
+          out = "ThreeRegressions.html") # name of the file
+
+# I wanted to make the columns wider, so I asked AI
+html_content <- readLines("ThreeRegressions.html") # 
+css <- "
+<style>
+  table {
+    width: 40%;
+    margin: auto;
+  }
+</style>
+"
+html_content <- c(css, html_content)
+writeLines(html_content, "ThreeRegressions.html")
+
+```
+
+
+
+```{r}
+
+# Pivoting to long format
+genre_data <- pivot_longer(time_series_data, cols = c(comscore, fanscore, horscore, crimescore, warscore), 
+                           # listing our genre-specific scores
+                           names_to = "genre", # a separate column "genre" appears, 
+                           values_to = "score") # assigning the "genre_scores" to each "genre"
+# "'score' becomes our dependent variable
+
+# The regression acquires genre interactions, specifically, to 'post_911' (immediate level change) and 'trend_after' (gradual change), which starts the count from October 2001
+
+its_genre <- lm(score ~ trend + post_911*genre + trend_after*genre 
+                + comedypop + crimepop + fanpop + horpop + warpop + scipop
+                + thrillpop + unrate + sent,
+                data = genre_data)
+# no summary yet
+
+# Stepwise selection, combining forward and backward selection by AIC
+its_genre_aic <- step(its_genre, direction = "both")
+
+# Final model specification — let's see which variables have survived
+summary(its_genre_aic)
+
+dwtest(its_genre_aic) # Durbin-Watson test for autocorrelation
+bgtest(its_genre_aic, order = 12)   # Breusch-Godfrey test
+acf(residuals(its_genre_aic)) # Autocorrelation function residuals test
+coeftest(its_genre_aic, vcov = NeweyWest(its_genre_aic, lag = 3)) # Newey-West correction for autocorrelation
+
+# checking what the stargazer variables will look like not to mess anything up
+stargazer(its_genre_aic, type = "text") 
+stargazer(its_genre_aic, # what models we want to display
+          title = "The Impact of 9/11 on Film Review Sentiment", # the title
+          column.labels = c("Genre Interactions Model"), # each model's name
+          dep.var.labels = c("Genre Sentiment Score"),
+          dep.var.caption = "", # excludes the name 'Dependent Variables'
+          covariate.labels = c("Trend", # trend
+                             "Post 9/11 Immediate Shift",  # post_911
+                             "Crime Thriller Score", # genrecrimescore
+                             "Fantasy/Sci-Fi Score", # genrefanscore
+                             "Horror Score",  # genrehorscore
+                             "War Score", # genrewarscore,
+                             "Trend After 9/11", # trend_after
+                             "Comedy Dominance", # comedypop
+                             "War Dominance", # warpop
+                             "Unemployment Rate", # unrate,
+                             "Post 9/11 * Crime Thriller", # post_911:genrecrimscore
+                             "Post 9/11 * Fantasy/Sci-Fi", # post_911:genrefanscore
+                             "Post 9/11 * Horror", # post_911:genrehorscore 
+                             "Post 9/11 * War", # post_911:genrewarscore 
+                             "Trend After * Crime Thriller", # genrecrimscore:trend_after
+                             "Trend After * Fantasy/Sci-Fi", # genrefanscore:trend_after
+                             "Trend After * Horror", # genrehorscore:trend_after
+                             "Trend After * War", # genrewarscore:trend_after
+                             "Constant" # intercept
+                             ),
+          type = "html", # type of output
+          out = "Genre Regression.html") # name of the file
+
+
+# I wanted to make the columns wider, so I asked AI
+html_content <- readLines("Genre Regression.html") 
+css <- "
+<style>
+  table {
+    width: 30%;
+    margin: auto;
+  }
+</style>
+"
+html_content <- c(css, html_content)
+writeLines(html_content, "Genre Regression.html")
+
+```
+Results Interpretation:
+
+What's apparent is that the romcom scores' immediate decline is no more significant when comparing across different genres. It might suggest 9/11 may have had a broad immediate effect on film sentiment rather than solely targeting romcoms.
+
+However, gradually after 9/11, the war and crime thriller sentiment scores tended to drift downwards with high significance. Most likely, the viewers started to express more negativity about and became more sensitive to violent and politically charged movies following the 9/11 attacks. Again, we compare them with the romcom sentiment scores. Thus, with each month after September 2001 (starting from October 2001) crime thriller scores moved, on average, 0.0010 (p < 0.001) lower than those of romcoms, and war scores would move, on average, 0.0011 (p < 0.001) lower than those of romcoms.
+
+```{r}
+
+```
+
+
+
+```{r}
+
+```
+
+```{r}
+
+
+```
