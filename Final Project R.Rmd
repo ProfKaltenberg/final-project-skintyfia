@@ -1,0 +1,134 @@
+---
+title: "Final Project R Notebook"
+output: html_document
+date: "2026-05-10"
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r cars}
+# load all the necessary packages ( not just for this assignment)
+library(knitr)
+library(readr)
+library(dplyr)
+library(tidyr)
+library(tidyverse)
+library(lmtest)
+library(stargazer)
+library(sandwich)
+library(car)
+library(tsDyn)
+library(vars)
+
+```
+
+
+```{r}
+
+# Download the csv file
+time_series_data = read.csv('/Users/khan/time_series_data.csv')
+  
+```
+
+First regression:
+
+```{r}
+
+# Overall/General/Mean Sentiment Score Regression:
+its_general <- lm(genscore ~ post_911 + sent + unrate +
+                  comedypop + crimepop + fanpop + horpop + warpop + scipop + thrillpop, 
+                  # all genre box office proportions
+                  data = time_series_data) # using the time_series dataset
+summary(its_general) # summary
+
+```
+Second regression
+
+```{r}
+
+# WAR sentiment score regression
+its_war <- lm(warscore ~ post_911 + unrate + sent + comedypop + warpop + crimepop +
+                fanpop + horpop + warpop + scipop + thrillpop,
+                 data = time_series_data)
+summary(its_war) # summarize
+
+```
+Third regression
+
+For the genre-interaction model, we are going to use the "tidyr" pivot_longer function to transform our time series dataset, allowing us to compare 9/11 impact across different genres — Romcom, Fantasy, Horror, Crime-Thriller, and War.
+It is kind of a pivot table, already transformed into a dataframe.
+
+```{r}
+
+# Pivoting to long format
+genre_data <- pivot_longer(time_series_data, cols = c(comscore, fanscore, horscore, crimescore, warscore), 
+                           # listing our genre-specific scores
+                           names_to = "genre", # a separate column "genre" appears, 
+                           values_to = "score") # assigning the "genre_scores" to each "genre"
+# 'score' becomes our dependent variable
+
+# The regression acquires genre interactions with post_911, comedy is the reference category
+
+its_genre <- lm(score ~ post_911*genre + unrate + sent
+                + comedypop + crimepop + fanpop + horpop + warpop + scipop + thrillpop,
+                data = genre_data)
+summary(its_genre) # summarize
+
+```
+
+Results Interpretation: After 9/11, crime thrillers saw a decline -- in comparison to romcom movies -- with below 1% significance; their review sentiment score went 0.11 points lower than that of romcoms, holding the genre differences, box office genre dominances, unemployment rate, and UMich consumer sentiment constant. Interestingly, the post 911 dummy -- belonging to the romcom genre as the reference category -- seemed to rise after 9/11. Its p-value is just below 10%, so we'll conclude this occurred by chance. So, for crime thrillers, the politically-charged category of films, post-9/11 overall decline was −0.070 (=0.037−0.107). Finally, war films' sentiment scores did not exhibit a significant value, meaning 9/11 did not have a significant impact on it.
+
+
+```{r}
+
+# checking what the stargazer variables will look like not to mess anything up
+stargazer(its_general, its_war, its_genre, type = "text") 
+stargazer(its_general, its_war, its_genre, # what models we want to display
+          title = "The Impact of 9/11 on Film Review Sentiment", # the title
+          column.labels = c("General Model", "War Model", "Genre Interactions"), # each model's name
+          dep.var.labels = c("General Sentiment Score", "War Sentiment Score", "Genre Sentiment Score"),
+          dep.var.caption = "", # excludes the name 'Dependent Variables'
+          covariate.labels = c("Post 9/11", # post_911 dummy variable
+                             "Crime Thriller Score", # genrecrimescore 
+                             "Fantasy/Sci-Fi Score", # genrefanscore
+                             "Horror Score",  # genrehorscore
+                             "War Score", # genrewarscore,
+                             "Unemployment Rate", # unrate,
+                             "UMich Consumer Sentiment", # sent
+                             "Comedy Dominance", # comedypop
+                             "Crime Dominance", # crimepop
+                             "Fantasy Dominance", # fanpop
+                             "Horror Dominance", # horpop
+                             "War Dominance", # warpop
+                             "Sci-Fi Dominance", # scipop
+                             "Thriller Dominance", # thrillpop
+                             "Post 9/11 * Crime Thriller", # post_911:genrecrimscore
+                             "Post 9/11 * Fantasy/Sci-Fi", # post_911:genrefanscore
+                             "Post 9/11 * Horror", # post_911:genrehorscore 
+                             "Post 9/11 * War", # post_911:genrewarscore 
+                             "Constant" # intercept
+                             ),
+          type = "html", # type of output
+          out = "Three Regressions.html") # name of the file
+
+```
+
+```{r}
+
+# I wanted to make the columns wider, so I asked AI
+html_content <- readLines("Three Regressions.html") 
+css <- "
+<style>
+  table {
+    width: 50%;
+    margin: auto;
+  }
+</style>
+"
+html_content <- c(css, html_content)
+writeLines(html_content, "Three Regressions.html")
+
+```
+
