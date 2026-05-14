@@ -22,7 +22,6 @@ library(car)
 library(tsDyn)
 library(vars)
 
-
 ```
 
 
@@ -79,7 +78,8 @@ summary(its_genre) # summarize
 
 ```
 
-Results Interpretation: After 9/11, crime thrillers saw a decline -- in comparison to romcom movies -- with below 1% significance; their review sentiment score went 0.11 points lower than that of romcoms, holding the genre differences, box office genre dominances, unemployment rate, and UMich consumer sentiment constant. Interestingly, the post 911 dummy -- belonging to the romcom genre as the reference category -- seemed to rise after 9/11. So for crime thriller, politically-charged category of films, post- 9/11 decline was −0.070 (0.037−0.107), overall. Finally, war films' sentiment scores did not exhibited a significant value.
+Results Interpretation: After 9/11, crime thrillers saw a decline -- in comparison to romcom movies -- with below 1% significance; their review sentiment score went 0.11 points lower than that of romcoms, holding the genre differences, box office genre dominances, unemployment rate, and UMich consumer sentiment constant. Interestingly, the post 911 dummy -- belonging to the romcom genre as the reference category -- seemed to rise after 9/11. Its p-value is just below 10%, so we'll conclude this occurred by chance. So, for crime thrillers, the politically-charged category of films, post-9/11 overall decline was −0.070 (=0.037−0.107). Finally, war films' sentiment scores did not exhibit a significant value, meaning 9/11 did not have a significant impact on it.
+
 
 ```{r}
 
@@ -87,11 +87,11 @@ Results Interpretation: After 9/11, crime thrillers saw a decline -- in comparis
 stargazer(its_general, its_war, its_genre, type = "text") 
 stargazer(its_general, its_war, its_genre, # what models we want to display
           title = "The Impact of 9/11 on Film Review Sentiment", # the title
-          column.labels = c("Genre Interactions Model"), # each model's name
-          dep.var.labels = c("Genre Sentiment Score"),
+          column.labels = c("General Model", "War Model", "Genre Interactions"), # each model's name
+          dep.var.labels = c("General Sentiment Score", "War Sentiment Score", "Genre Sentiment Score"),
           dep.var.caption = "", # excludes the name 'Dependent Variables'
           covariate.labels = c("Post 9/11", # post_911 dummy variable
-                             "Crime Thriller Score", # genrecrimescore
+                             "Crime Thriller Score", # genrecrimescore 
                              "Fantasy/Sci-Fi Score", # genrefanscore
                              "Horror Score",  # genrehorscore
                              "War Score", # genrewarscore,
@@ -122,7 +122,7 @@ html_content <- readLines("Three Regressions.html")
 css <- "
 <style>
   table {
-    width: 30%;
+    width: 50%;
     margin: auto;
   }
 </style>
@@ -132,13 +132,3 @@ writeLines(html_content, "Three Regressions.html")
 
 ```
 
-
-
-```{r}
-
-```
-
-```{r}
-
-
-```
